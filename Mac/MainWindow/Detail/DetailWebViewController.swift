@@ -16,6 +16,7 @@ import Images
 @MainActor protocol DetailWebViewControllerDelegate: AnyObject {
 	func mouseDidEnter(_: DetailWebViewController, link: String)
 	func mouseDidExit(_: DetailWebViewController)
+	func tldrStateDidChange(_: DetailWebViewController)
 }
 
 final class DetailWebViewController: NSViewController {
@@ -34,7 +35,18 @@ final class DetailWebViewController: NSViewController {
 				default:
 					break
 				}
+				resetTLDRState()
 				reloadHTML()
+			}
+		}
+	}
+
+	/// The TL;DR card's state for the current article. Pushed to the page on every change.
+	private(set) var tldrState = TLDRState(status: .unavailable, length: AppDefaults.shared.tldrSummaryLength) {
+		didSet {
+			if tldrState != oldValue {
+				pushTLDRStateToWebView()
+				delegate?.tldrStateDidChange(self)
 			}
 		}
 	}
@@ -55,6 +67,15 @@ final class DetailWebViewController: NSViewController {
 	}
 
 	private var articleTextSize = AppDefaults.shared.articleTextSize
+
+	private var summaryTask: Task<Void, Never>?
+	// Bumped on every summarize/cancel. A finishing task compares against it so a stale result
+	// (say, a slow first attempt landing after Regenerate) can't overwrite the current one.
+	private var summaryGeneration = 0
+
+	// Articles whose card the reader closed. Session-only, and shared across the regular and
+	// search web views so hiding in one doesn't reopen in the other.
+	private static var hiddenSummaryArticleIDs = Set<String>()
 
 	private var webInspectorEnabled: Bool {
 		get {
@@ -99,6 +120,7 @@ final class DetailWebViewController: NSViewController {
 		static let mouseDidEnter = "mouseDidEnter"
 		static let mouseDidExit = "mouseDidExit"
 		static let windowDidScroll = "windowDidScroll"
+		static let tldr = "tldr"
 	}
 
 	override func loadView() {
@@ -171,6 +193,24 @@ final class DetailWebViewController: NSViewController {
 		}
 	}
 
+	// MARK: TL;DR
+
+	/// Toolbar button, menu item, and ⌘⇧S all land here.
+	func toggleTLDR() {
+		switch tldrState.status {
+		case .unavailable:
+			break
+		case .generating:
+			cancelSummarization()
+		case .ready:
+			hideSummary()
+		case .hidden:
+			showSummary()
+		case .idle, .failed:
+			summarize(length: tldrState.length, regenerate: false)
+		}
+	}
+
 	// MARK: Scrolling
 
 	func canScrollDown() async -> Bool {
@@ -204,6 +244,8 @@ extension DetailWebViewController: WKScriptMessageHandler {
 			delegate?.mouseDidEnter(self, link: link)
 		} else if message.name == MessageName.mouseDidExit {
 			delegate?.mouseDidExit(self)
+		} else if message.name == MessageName.tldr, let body = message.body as? [String: Any], let action = body["action"] as? String {
+			handleTLDRMessage(action: action, lengthRawValue: body["length"] as? String)
 		}
 	}
 }
@@ -266,6 +308,9 @@ extension DetailWebViewController: WKNavigationDelegate, WKUIDelegate {
 			webView.evaluateJavaScript("window.scrollTo(0, \(pendingScrollRestorationY));")
 			self.pendingScrollRestorationY = nil
 		}
+
+		// The page starts from scratch on every load; tell it where the TL;DR is.
+		pushTLDRStateToWebView()
 	}
 
 	func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
@@ -317,6 +362,7 @@ private extension DetailWebViewController {
 		configuration.userContentController.add(self, name: MessageName.windowDidScroll)
 		configuration.userContentController.add(self, name: MessageName.mouseDidEnter)
 		configuration.userContentController.add(self, name: MessageName.mouseDidExit)
+		configuration.userContentController.add(self, name: MessageName.tldr)
 
 		let webView = DetailWebView(frame: view.bounds, configuration: configuration)
 		webView.uiDelegate = self
@@ -433,6 +479,148 @@ private extension DetailWebViewController {
 
 	@objc func webInspectorEnabledDidChange(_ notification: Notification) {
 		self.webInspectorEnabled = notification.object! as! Bool
+	}
+}
+
+// MARK: - TL;DR
+
+private extension DetailWebViewController {
+
+	/// Plain text of what the reader is looking at — the extracted article when Reader View is on.
+	var summarySourceHTML: String? {
+		switch state {
+		case .article(let article, _):
+			return article.body
+		case .extracted(let article, let extractedArticle, _):
+			return extractedArticle.content ?? article.body
+		default:
+			return nil
+		}
+	}
+
+	func resetTLDRState() {
+		summaryTask?.cancel()
+		summaryTask = nil
+		summaryGeneration += 1
+		tldrState = initialTLDRState()
+	}
+
+	func initialTLDRState() -> TLDRState {
+		let length = AppDefaults.shared.tldrSummaryLength
+		guard let article, let html = summarySourceHTML, !html.isEmpty else {
+			return TLDRState(status: .unavailable, length: length)
+		}
+		if let summary = ArticleSummaryStore.shared.summary(for: article.articleID, length: length) {
+			let isHidden = Self.hiddenSummaryArticleIDs.contains(article.articleID)
+			return TLDRState(status: isHidden ? .hidden : .ready, length: length, summary: summary)
+		}
+		return TLDRState(status: .idle, length: length)
+	}
+
+	func handleTLDRMessage(action: String, lengthRawValue: String?) {
+		let length = lengthRawValue.flatMap(SummaryLength.init(rawValue:)) ?? tldrState.length
+		switch action {
+		case "summarize":
+			summarize(length: length, regenerate: false)
+		case "regenerate":
+			summarize(length: length, regenerate: true)
+		case "hide":
+			hideSummary()
+		case "show":
+			showSummary()
+		case "cancel":
+			cancelSummarization()
+		default:
+			Self.logger.debug("DetailWebViewController: unknown tldr action \(action)")
+		}
+	}
+
+	func summarize(length: SummaryLength, regenerate: Bool) {
+		guard let article, let html = summarySourceHTML else {
+			return
+		}
+		let articleID = article.articleID
+
+		summaryTask?.cancel()
+		AppDefaults.shared.tldrSummaryLength = length
+		Self.hiddenSummaryArticleIDs.remove(articleID)
+
+		if !regenerate, let cached = ArticleSummaryStore.shared.summary(for: articleID, length: length) {
+			tldrState = TLDRState(status: .ready, length: length, summary: cached)
+			return
+		}
+
+		let title = ArticleStringFormatter.sanitizedTitle(article.title, forHTML: false) ?? ""
+		summaryGeneration += 1
+		let generation = summaryGeneration
+		tldrState = TLDRState(status: .generating, length: length)
+
+		summaryTask = Task { @MainActor [weak self] in
+			// Stripping HTML is proportional to article size; keep it off the main actor.
+			let text = await Task.detached(priority: .userInitiated) {
+				SummarySourceText.plainText(fromHTML: html)
+			}.value
+
+			do {
+				let summary = try await ArticleSummarizer.shared.summarize(articleID: articleID, title: title, text: text, length: length)
+				guard let self, self.summaryGeneration == generation, self.article?.articleID == articleID else {
+					return
+				}
+				ArticleSummaryStore.shared.add(summary)
+				self.tldrState = TLDRState(status: .ready, length: length, summary: summary)
+			} catch is CancellationError {
+				// Selection changed or the reader cancelled — whoever did that already set the state.
+			} catch {
+				guard let self, self.summaryGeneration == generation, self.article?.articleID == articleID else {
+					return
+				}
+				DetailWebViewController.logger.error("DetailWebViewController: TL;DR failed: \(error.localizedDescription)")
+				self.tldrState = TLDRState(status: .failed, length: length, errorMessage: error.localizedDescription)
+			}
+		}
+	}
+
+	func hideSummary() {
+		guard let article else {
+			return
+		}
+		// Hiding mid-generation is a cancel too — otherwise the card would pop back when the task finishes.
+		summaryTask?.cancel()
+		summaryTask = nil
+		summaryGeneration += 1
+
+		Self.hiddenSummaryArticleIDs.insert(article.articleID)
+		if let summary = ArticleSummaryStore.shared.summary(for: article.articleID, length: tldrState.length) {
+			tldrState = TLDRState(status: .hidden, length: tldrState.length, summary: summary)
+		} else {
+			tldrState = TLDRState(status: .idle, length: tldrState.length)
+		}
+	}
+
+	func showSummary() {
+		guard let article else {
+			return
+		}
+		Self.hiddenSummaryArticleIDs.remove(article.articleID)
+		if let summary = ArticleSummaryStore.shared.summary(for: article.articleID, length: tldrState.length) {
+			tldrState = TLDRState(status: .ready, length: tldrState.length, summary: summary)
+		} else {
+			summarize(length: tldrState.length, regenerate: false)
+		}
+	}
+
+	func cancelSummarization() {
+		summaryTask?.cancel()
+		summaryTask = nil
+		summaryGeneration += 1
+		tldrState = initialTLDRState()
+	}
+
+	func pushTLDRStateToWebView() {
+		guard let webView, let json = tldrState.jsonString() else {
+			return
+		}
+		webView.evaluateJavaScript("if (window.nnwTLDR) { nnwTLDR.render(\(json)); }")
 	}
 }
 

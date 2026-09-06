@@ -20,16 +20,28 @@ enum DetailState: Equatable {
 	case extracted(Article, ExtractedArticle, CGFloat?)
 }
 
+@MainActor protocol DetailViewControllerDelegate: AnyObject {
+	func detailTLDRStateDidChange(_: DetailViewController)
+}
+
 final class DetailViewController: NSViewController, WKUIDelegate {
 
 	@IBOutlet var containerView: DetailContainerView!
 	@IBOutlet var statusBarView: DetailStatusBarView!
+
+	weak var delegate: DetailViewControllerDelegate?
 
 	private lazy var regularWebViewController = createWebViewController()
 	private var searchWebViewController: DetailWebViewController?
 
 	var windowState: DetailWindowState {
 		currentWebViewController.windowState
+	}
+
+	/// TL;DR state of the article on screen. Drives the toolbar button and the Article menu item.
+	var tldrState: TLDRState {
+		// Toolbar validation can run before the view loads; report "nothing to summarize" until then.
+		currentWebViewController?.tldrState ?? TLDRState(status: .unavailable, length: AppDefaults.shared.tldrSummaryLength)
 	}
 
 	private var currentWebViewController: DetailWebViewController! {
@@ -40,6 +52,8 @@ final class DetailViewController: NSViewController, WKUIDelegate {
 			}
 			statusBarView.mouseoverLink = nil
 			containerView.contentView = webview
+			// Regular and search have their own TL;DR state; the toolbar should follow the visible one.
+			delegate?.detailTLDRStateDidChange(self)
 		}
 	}
 
@@ -91,6 +105,10 @@ final class DetailViewController: NSViewController, WKUIDelegate {
 		currentWebViewController.stopMediaPlayback()
 	}
 
+	func toggleTLDR() {
+		currentWebViewController.toggleTLDR()
+	}
+
 	func fetchSelectedHTML(_ completion: @escaping (String?) -> Void) {
 		currentWebViewController.fetchSelectedHTML(completion)
 	}
@@ -137,6 +155,13 @@ extension DetailViewController: DetailWebViewControllerDelegate {
 			return
 		}
 		statusBarView.mouseoverLink = nil
+	}
+
+	func tldrStateDidChange(_ detailWebViewController: DetailWebViewController) {
+		guard detailWebViewController === currentWebViewController else {
+			return
+		}
+		delegate?.detailTLDRStateDidChange(self)
 	}
 }
 
