@@ -184,3 +184,219 @@ a.footnote {
 	position:relative;
 	top: -0.1em;
 }
+
+/* TL;DR — the summary bar and card inserted above the article body by tldr.js.
+   Lives in core.css so every theme gets it. Colors are variables so themes can override. */
+
+:root {
+	--tldr-accent: rgb(0, 122, 255);
+	--tldr-background: rgba(0, 0, 0, 0.035);
+	--tldr-border: rgba(0, 0, 0, 0.12);
+	--tldr-muted: rgba(0, 0, 0, 0.55);
+	--tldr-control-background: rgba(0, 0, 0, 0.06);
+	--tldr-control-selected: rgba(0, 0, 0, 0.12);
+	--tldr-kbd-border: rgba(0, 0, 0, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--tldr-accent: rgb(94, 158, 244);
+		--tldr-background: rgba(255, 255, 255, 0.05);
+		--tldr-border: rgba(255, 255, 255, 0.14);
+		--tldr-muted: rgba(255, 255, 255, 0.5);
+		--tldr-control-background: rgba(255, 255, 255, 0.08);
+		--tldr-control-selected: rgba(255, 255, 255, 0.18);
+		--tldr-kbd-border: rgba(255, 255, 255, 0.22);
+	}
+}
+
+.nnw-tldr {
+	font-family: -apple-system, system-ui, sans-serif;
+	font-size: 0.85em;
+	line-height: 1.45;
+	margin: 0 0 1.4em 0;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+.nnw-tldr[hidden] {
+	display: none;
+}
+
+.nnw-tldr-icon {
+	width: 1.05em;
+	height: 1.05em;
+	vertical-align: -0.15em;
+	flex: none;
+}
+
+.nnw-tldr-iconwrap {
+	display: inline-flex;
+	align-items: center;
+	color: var(--tldr-accent);
+}
+
+/* Bar */
+
+.nnw-tldr-bar {
+	display: flex;
+	align-items: center;
+	gap: 0.6em;
+	padding: 0.55em 0.9em;
+	border: 1px dashed var(--tldr-border);
+	border-radius: 8px;
+	color: var(--tldr-muted);
+	cursor: pointer;
+}
+
+.nnw-tldr-bar:hover,
+.nnw-tldr-bar:focus-visible {
+	border-color: var(--tldr-accent);
+	color: inherit;
+	outline: none;
+}
+
+.nnw-tldr-bar-label {
+	flex: 1 1 auto;
+}
+
+.nnw-tldr-kbd {
+	font-family: -apple-system, system-ui, sans-serif;
+	font-size: 0.85em;
+	padding: 0.1em 0.45em;
+	border: 1px solid var(--tldr-kbd-border);
+	border-radius: 4px;
+	color: var(--tldr-muted);
+}
+
+/* Card */
+
+.nnw-tldr-card {
+	border: 1px solid var(--tldr-border);
+	border-radius: 10px;
+	background: var(--tldr-background);
+	padding: 0.85em 1.1em 0.9em;
+}
+
+.nnw-tldr-ready {
+	border-color: color-mix(in srgb, var(--tldr-accent) 45%, transparent);
+}
+
+.nnw-tldr-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1em;
+	margin-bottom: 0.6em;
+}
+
+.nnw-tldr-title {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45em;
+	font-weight: 700;
+	color: var(--tldr-accent);
+	letter-spacing: 0.01em;
+}
+
+.nnw-tldr-actions {
+	display: flex;
+	gap: 1em;
+}
+
+.nnw-tldr-button {
+	appearance: none;
+	-webkit-appearance: none;
+	border: none;
+	background: none;
+	padding: 0;
+	margin: 0;
+	font: inherit;
+	color: var(--tldr-muted);
+	cursor: pointer;
+}
+
+.nnw-tldr-button:hover {
+	color: var(--tldr-accent);
+}
+
+.nnw-tldr-body {
+	font-size: 1.05em;
+	-webkit-user-select: text;
+	user-select: text;
+}
+
+.nnw-tldr-body p {
+	margin: 0;
+}
+
+.nnw-tldr-generating {
+	color: var(--tldr-muted);
+	font-style: italic;
+}
+
+.nnw-tldr-dots {
+	display: inline-block;
+	animation: nnw-tldr-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes nnw-tldr-pulse {
+	0%, 100% { opacity: 0.25; }
+	50% { opacity: 1; }
+}
+
+.nnw-tldr-error {
+	color: var(--tldr-muted);
+}
+
+.nnw-tldr-retry {
+	margin-top: 0.5em;
+	color: var(--tldr-accent);
+}
+
+.nnw-tldr-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1em;
+	margin-top: 0.8em;
+	padding-top: 0.7em;
+	border-top: 1px solid var(--tldr-border);
+}
+
+.nnw-tldr-segments {
+	display: inline-flex;
+	background: var(--tldr-control-background);
+	border-radius: 6px;
+	padding: 2px;
+}
+
+.nnw-tldr-segment {
+	appearance: none;
+	-webkit-appearance: none;
+	border: none;
+	background: none;
+	font: inherit;
+	font-size: 0.95em;
+	padding: 0.2em 0.75em;
+	border-radius: 4px;
+	color: var(--tldr-muted);
+	cursor: pointer;
+}
+
+.nnw-tldr-segment:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.nnw-tldr-segment-selected {
+	background: var(--tldr-control-selected);
+	color: inherit;
+	font-weight: 600;
+}
+
+.nnw-tldr-note {
+	color: var(--tldr-muted);
+	font-size: 0.9em;
+	text-align: end;
+}

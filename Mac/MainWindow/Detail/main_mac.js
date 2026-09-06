@@ -40,4 +40,8 @@ function selectedHTML() {
 function postRenderProcessing() {
 	scrollDetection();
 	linkHover();
+	// The TL;DR bar goes in once the article body exists — see tldr.js.
+	if (window.nnwTLDR) {
+		nnwTLDR.install();
+	}
 }

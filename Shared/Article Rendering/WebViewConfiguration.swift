@@ -143,7 +143,7 @@ private extension WebViewConfiguration {
 #if os(iOS)
 		let filenames = ["main", "main_ios", "newsfoot"]
 #else
-		let filenames = ["main", "main_mac", "newsfoot"]
+		let filenames = ["main", "main_mac", "tldr", "newsfoot"]
 #endif
 
 		var scripts = filenames.map { filename in
@@ -154,9 +154,20 @@ private extension WebViewConfiguration {
 
 #if os(iOS)
 		scripts.insert(feedInfoLabelScript, at: 0)
+#else
+		scripts.insert(tldrStringsScript, at: 0)
 #endif
 		return scripts
 	}()
+
+#if os(macOS)
+	// tldr.js can't call NSLocalizedString, so the card's labels are passed in from here.
+	// JSON encoding makes the dictionary a valid JavaScript object literal.
+	static let tldrStringsScript: WKUserScript = {
+		let json = String(data: try! JSONSerialization.data(withJSONObject: TLDRStrings.dictionary), encoding: .utf8)!
+		return WKUserScript(source: "const nnwTLDRStrings = \(json);", injectionTime: .atDocumentStart, forMainFrameOnly: true)
+	}()
+#endif
 
 #if os(iOS)
 	// main_ios.js uses nnwGetFeedInfoLabel as the feed icon's accessibility label.
