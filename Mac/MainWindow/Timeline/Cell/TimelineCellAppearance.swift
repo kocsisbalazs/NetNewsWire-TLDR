@@ -32,6 +32,9 @@ struct TimelineCellAppearance: Equatable {
 
 	let starDimension: CGFloat = 13.0
 
+	let summaryBadgeFont: NSFont
+	let summaryBadgeMarginLeft: CGFloat = 6.0
+
 	let drawsGrid = false
 
 	let iconSize = NSSize(width: 48, height: 48)
@@ -53,6 +56,7 @@ struct TimelineCellAppearance: Equatable {
 		self.titleFont = NSFont.systemFont(ofSize: largeItemFontSize, weight: NSFont.Weight.semibold)
 		self.textFont = NSFont.systemFont(ofSize: largeItemFontSize)
 		self.textOnlyFont = NSFont.systemFont(ofSize: largeItemFontSize)
+		self.summaryBadgeFont = NSFont.systemFont(ofSize: floor(smallItemFontSize * 0.85), weight: NSFont.Weight.bold)
 
 		self.showIcon = showIcon
 

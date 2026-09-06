@@ -21,6 +21,7 @@ final class TimelineTableCellView: NSTableCellView {
 	private lazy var iconView = IconView()
 
 	private var starView = TimelineTableCellView.imageView(with: Assets.Images.timelineStar, scaling: .scaleNone)
+	private let summaryBadgeView = TimelineBadgeView(frame: NSRect.zero)
 
 	private lazy var textFields = {
 		return [self.dateView, self.feedNameView, self.titleView, self.summaryView, self.textView]
@@ -31,6 +32,7 @@ final class TimelineTableCellView: NSTableCellView {
 			if cellAppearance != oldValue {
 				updateTextFieldFonts()
 				iconView.layer?.cornerRadius = cellAppearance.iconCornerRadius
+				summaryBadgeView.font = cellAppearance.summaryBadgeFont
 				needsLayout = true
 			}
 		}
@@ -45,6 +47,7 @@ final class TimelineTableCellView: NSTableCellView {
 	var isEmphasized: Bool = false {
 		didSet {
 			unreadIndicatorView.isEmphasized = isEmphasized
+			summaryBadgeView.isEmphasized = isEmphasized
 			updateStarView()
 		}
 	}
@@ -52,6 +55,7 @@ final class TimelineTableCellView: NSTableCellView {
 	var isSelected: Bool = false {
 		didSet {
 			unreadIndicatorView.isSelected = isSelected
+			summaryBadgeView.isSelected = isSelected
 			updateStarView()
 		}
 	}
@@ -107,6 +111,7 @@ final class TimelineTableCellView: NSTableCellView {
 		feedNameView.setFrameIfNotEqual(layoutRects.feedNameRect)
 		iconView.setFrameIfNotEqual(layoutRects.iconImageRect)
 		starView.setFrameIfNotEqual(layoutRects.starRect)
+		summaryBadgeView.setFrameIfNotEqual(layoutRects.summaryBadgeRect)
 	}
 }
 
@@ -188,6 +193,8 @@ private extension TimelineTableCellView {
 		addSubviewAtInit(feedNameView, hidden: true)
 		addSubviewAtInit(iconView, hidden: true)
 		addSubviewAtInit(starView, hidden: true)
+		addSubviewAtInit(summaryBadgeView, hidden: true)
+		summaryBadgeView.text = TimelineCellLayout.summaryBadgeText
 
 		makeTextFieldColorsNormal()
 	}
@@ -261,6 +268,14 @@ private extension TimelineTableCellView {
 		showOrHideView(starView, !cellData.starred)
 	}
 
+	func updateSummaryBadgeView() {
+		let shouldShow = cellData.hasSummary
+		if shouldShow != !summaryBadgeView.isHidden {
+			needsLayout = true
+		}
+		showOrHideView(summaryBadgeView, !shouldShow)
+	}
+
 	func updateIcon() {
 		guard let iconImage = cellData.iconImage, cellData.showIcon else {
 			makeIconEmpty()
@@ -310,6 +325,7 @@ private extension TimelineTableCellView {
 		updateFeedNameView()
 		updateUnreadIndicator()
 		updateStarView()
+		updateSummaryBadgeView()
 		updateIcon()
 	}
 }

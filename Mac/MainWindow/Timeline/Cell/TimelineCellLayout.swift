@@ -22,10 +22,11 @@ import RSCore
 	let unreadIndicatorRect: NSRect
 	let starRect: NSRect
 	let iconImageRect: NSRect
+	let summaryBadgeRect: NSRect
 	let separatorRect: NSRect
 	let paddingBottom: CGFloat
 
-	init(width: CGFloat, height: CGFloat, feedNameRect: NSRect, dateRect: NSRect, titleRect: NSRect, numberOfLinesForTitle: Int, summaryRect: NSRect, textRect: NSRect, unreadIndicatorRect: NSRect, starRect: NSRect, iconImageRect: NSRect, separatorRect: NSRect, paddingBottom: CGFloat) {
+	init(width: CGFloat, height: CGFloat, feedNameRect: NSRect, dateRect: NSRect, titleRect: NSRect, numberOfLinesForTitle: Int, summaryRect: NSRect, textRect: NSRect, unreadIndicatorRect: NSRect, starRect: NSRect, iconImageRect: NSRect, summaryBadgeRect: NSRect, separatorRect: NSRect, paddingBottom: CGFloat) {
 
 		self.width = width
 		self.feedNameRect = feedNameRect
@@ -37,13 +38,14 @@ import RSCore
 		self.unreadIndicatorRect = unreadIndicatorRect
 		self.starRect = starRect
 		self.iconImageRect = iconImageRect
+		self.summaryBadgeRect = summaryBadgeRect
 		self.separatorRect = separatorRect
 		self.paddingBottom = paddingBottom
 
 		if height > 0.1 {
 			self.height = height
 		} else {
-			self.height = [feedNameRect, dateRect, titleRect, summaryRect, textRect, unreadIndicatorRect, iconImageRect].maxY() + paddingBottom
+			self.height = [feedNameRect, dateRect, titleRect, summaryRect, textRect, unreadIndicatorRect, iconImageRect, summaryBadgeRect].maxY() + paddingBottom
 		}
 	}
 
@@ -66,10 +68,14 @@ import RSCore
 				lastTextRect = summaryRect
 			}
 		}
-		let dateRect = TimelineCellLayout.rectForDate(textBoxRect, lastTextRect, appearance, cellData)
+		// The TL;DR badge sits at the trailing edge of the date row; the date moves left to make room.
+		let summaryBadgeSize = TimelineCellLayout.sizeForSummaryBadge(appearance, cellData)
+		let dateMaxX = summaryBadgeSize.width > 0 ? textBoxRect.maxX - summaryBadgeSize.width - appearance.summaryBadgeMarginLeft : textBoxRect.maxX
+		let dateRect = TimelineCellLayout.rectForDate(textBoxRect, lastTextRect, dateMaxX, appearance, cellData)
+		let summaryBadgeRect = TimelineCellLayout.rectForSummaryBadge(textBoxRect, dateRect, summaryBadgeSize)
 		let feedNameRect = TimelineCellLayout.rectForFeedName(textBoxRect, dateRect, appearance, cellData)
 
-		textBoxRect.size.height = ceil([titleRect, summaryRect, textRect, dateRect, feedNameRect].maxY() - textBoxRect.origin.y)
+		textBoxRect.size.height = ceil([titleRect, summaryRect, textRect, dateRect, feedNameRect, summaryBadgeRect].maxY() - textBoxRect.origin.y)
 		let iconImageRect = TimelineCellLayout.rectForIcon(cellData, appearance, showIcon, textBoxRect, width, height)
 		let unreadIndicatorRect = TimelineCellLayout.rectForUnreadIndicator(appearance, textBoxRect)
 		let starRect = TimelineCellLayout.rectForStar(appearance, unreadIndicatorRect)
@@ -77,8 +83,10 @@ import RSCore
 
 		let paddingBottom = appearance.cellPadding.bottom
 
-		self.init(width: width, height: height, feedNameRect: feedNameRect, dateRect: dateRect, titleRect: titleRect, numberOfLinesForTitle: numberOfLinesForTitle, summaryRect: summaryRect, textRect: textRect, unreadIndicatorRect: unreadIndicatorRect, starRect: starRect, iconImageRect: iconImageRect, separatorRect: separatorRect, paddingBottom: paddingBottom)
+		self.init(width: width, height: height, feedNameRect: feedNameRect, dateRect: dateRect, titleRect: titleRect, numberOfLinesForTitle: numberOfLinesForTitle, summaryRect: summaryRect, textRect: textRect, unreadIndicatorRect: unreadIndicatorRect, starRect: starRect, iconImageRect: iconImageRect, summaryBadgeRect: summaryBadgeRect, separatorRect: separatorRect, paddingBottom: paddingBottom)
 	}
+
+	static let summaryBadgeText = NSLocalizedString("TL;DR", comment: "Timeline badge for an article with a summary")
 
 	static func height(for width: CGFloat, cellData: TimelineCellData, appearance: TimelineCellAppearance) -> CGFloat {
 
@@ -156,7 +164,7 @@ import RSCore
 		return r
 	}
 
-	static func rectForDate(_ textBoxRect: NSRect, _ rectAbove: NSRect, _ appearance: TimelineCellAppearance, _ cellData: TimelineCellData) -> NSRect {
+	static func rectForDate(_ textBoxRect: NSRect, _ rectAbove: NSRect, _ maxX: CGFloat, _ appearance: TimelineCellAppearance, _ cellData: TimelineCellData) -> NSRect {
 		let textFieldSize = SingleLineTextFieldSizer.size(for: cellData.dateString, font: appearance.dateFont)
 
 		var r = NSRect.zero
@@ -164,8 +172,26 @@ import RSCore
 		r.origin.y = rectAbove.maxY + appearance.titleBottomMargin
 		r.size.width = textFieldSize.width
 
-		r.origin.x = textBoxRect.maxX - textFieldSize.width
+		r.origin.x = maxX - textFieldSize.width
 
+		return r
+	}
+
+	static func sizeForSummaryBadge(_ appearance: TimelineCellAppearance, _ cellData: TimelineCellData) -> NSSize {
+		guard cellData.hasSummary else {
+			return NSSize.zero
+		}
+		return TimelineBadgeView.size(for: TimelineCellLayout.summaryBadgeText, font: appearance.summaryBadgeFont)
+	}
+
+	static func rectForSummaryBadge(_ textBoxRect: NSRect, _ dateRect: NSRect, _ badgeSize: NSSize) -> NSRect {
+		guard badgeSize.width > 0 else {
+			return NSRect.zero
+		}
+		var r = NSRect.zero
+		r.size = badgeSize
+		r.origin.x = textBoxRect.maxX - badgeSize.width
+		r.origin.y = floor(dateRect.midY - badgeSize.height / 2.0)
 		return r
 	}
 
@@ -179,7 +205,8 @@ import RSCore
 		r.size = textFieldSize
 		r.origin.y = dateRect.minY
 		r.origin.x = textBoxRect.origin.x
-		r.size.width = (textBoxRect.maxX - (dateRect.size.width + appearance.dateMarginLeft)) - textBoxRect.origin.x
+		// Up to the date (which may itself have moved left for the TL;DR badge).
+		r.size.width = (dateRect.minX - appearance.dateMarginLeft) - textBoxRect.origin.x
 
 		return r
 	}

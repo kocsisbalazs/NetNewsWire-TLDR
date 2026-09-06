@@ -242,6 +242,7 @@ final class TimelineViewController: NSViewController, UndoableCommandRunner, Unr
 
 		if !didRegisterForNotifications {
 			NotificationCenter.default.addObserver(self, selector: #selector(statusesDidChange(_:)), name: .StatusesDidChange, object: nil)
+			NotificationCenter.default.addObserver(self, selector: #selector(articleSummariesDidChange(_:)), name: .articleSummariesDidChange, object: nil)
 			NotificationCenter.default.addObserver(self, selector: #selector(feedIconDidBecomeAvailable(_:)), name: .feedIconDidBecomeAvailable, object: nil)
 			NotificationCenter.default.addObserver(self, selector: #selector(avatarDidBecomeAvailable(_:)), name: .AvatarDidBecomeAvailable, object: nil)
 			NotificationCenter.default.addObserver(self, selector: #selector(faviconDidBecomeAvailable(_:)), name: .FaviconDidBecomeAvailable, object: nil)
@@ -662,6 +663,14 @@ final class TimelineViewController: NSViewController, UndoableCommandRunner, Unr
 		}
 		reloadVisibleCells(for: articleIDs)
 		updateUnreadCount()
+	}
+
+	@objc func articleSummariesDidChange(_ note: Notification) {
+		// A TL;DR was generated or removed — the cell's badge needs to follow.
+		guard let articleIDs = note.userInfo?[ArticleSummaryStore.UserInfoKey.articleIDs] as? Set<String> else {
+			return
+		}
+		reloadVisibleCells(for: articleIDs)
 	}
 
 	@objc func feedIconDidBecomeAvailable(_ note: Notification) {

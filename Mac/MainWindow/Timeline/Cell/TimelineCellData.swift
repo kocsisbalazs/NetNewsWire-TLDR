@@ -25,6 +25,7 @@ import Images
 	let showIcon: Bool // Make space even when icon is nil
 	let read: Bool
 	let starred: Bool
+	let hasSummary: Bool // a TL;DR has been generated — show the badge
 
 	init(article: Article, showFeedName: TimelineShowFeedName, feedName: String?, byline: String?, iconImage: IconImage?, showIcon: Bool) {
 
@@ -59,6 +60,8 @@ import Images
 
 		self.read = article.status.read
 		self.starred = article.status.starred
+
+		self.hasSummary = ArticleSummaryStore.shared.hasSummary(for: article.articleID)
 	}
 
 	init() { // Empty
@@ -72,6 +75,7 @@ import Images
 		self.iconImage = nil
 		self.read = true
 		self.starred = false
+		self.hasSummary = false
 		self.attributedTitle = NSAttributedString()
 	}
 }
