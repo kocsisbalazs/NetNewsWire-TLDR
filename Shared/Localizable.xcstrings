@@ -1208,6 +1208,60 @@
     },
     "Your iCloud account syncs your feeds across your Mac and iOS devices" : {
       "comment" : "iCloud Account"
+    },
+    "Short" : {
+      "comment" : "TL;DR summary length"
+    },
+    "Detailed" : {
+      "comment" : "TL;DR summary length"
+    },
+    "This article has no text to summarize." : {
+      "comment" : "TL;DR error"
+    },
+    "TL;DR" : {
+      "comment" : "TL;DR"
+    },
+    "summarize with TL;DR" : {
+      "comment" : "TL;DR bar action"
+    },
+    "show TL;DR" : {
+      "comment" : "TL;DR bar action"
+    },
+    "%@ words" : {
+      "comment" : "TL;DR bar — %@ is a formatted number"
+    },
+    "~%@ min" : {
+      "comment" : "TL;DR bar — %@ is a number of minutes"
+    },
+    "Regenerate" : {
+      "comment" : "TL;DR card button"
+    },
+    "Hide" : {
+      "comment" : "TL;DR card button"
+    },
+    "Try again" : {
+      "comment" : "TL;DR card button"
+    },
+    "Summarizing on device" : {
+      "comment" : "TL;DR card progress"
+    },
+    "Generated on device · may be inaccurate" : {
+      "comment" : "TL;DR card footer"
+    },
+    "Key sentences from the article · generated on device" : {
+      "comment" : "TL;DR card footer"
+    },
+    "Summarize with TL;DR" : {
+      "comment" : "Command"
+    },
+    "Hide TL;DR" : {
+      "comment" : "Command"
+    },
+    "Summarizing - TL;DR" : {
+      "comment" : "Summarizing - TL;DR"
+    },
+    "Selected - TL;DR" : {
+      "comment" : "Selected - TL;DR"
     }
   },
   "version" : "1.1"

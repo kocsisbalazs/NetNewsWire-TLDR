@@ -203,6 +203,7 @@ let appName = "NetNewsWire"
 
 		updateSortMenuItems()
 		updateGroupByFeedMenuItem()
+		addTLDRMenuItem()
 
 		if mainWindowController == nil {
 			let mainWindowController = createAndShowMainWindow()
@@ -1067,6 +1068,38 @@ extension AppDelegate: NSWindowRestoration {
 // Handle Notification Actions
 
 private extension AppDelegate {
+
+	/// Adds “Summarize with TL;DR” (⌘⇧S) to the Article menu, right after Reader View.
+	///
+	/// Done in code rather than in Main.storyboard so the shortcut ships with this file set.
+	/// The item is nil-targeted: MainWindowController validates and performs it via the responder chain,
+	/// exactly like the Reader View item.
+	func addTLDRMenuItem() {
+		guard let mainMenu = NSApp.mainMenu else {
+			return
+		}
+		let readerViewAction = #selector(MainWindowController.toggleArticleExtractor(_:))
+		let tldrAction = #selector(MainWindowController.toggleTLDR(_:))
+
+		// Find the menu by its contents, not its title — titles are localized.
+		let submenus = mainMenu.items.compactMap { $0.submenu }
+		guard let articleMenu = submenus.first(where: { menu in menu.items.contains { $0.action == readerViewAction } }) else {
+			Self.logger.error("Could not find the Article menu to add the TL;DR item.")
+			return
+		}
+		guard !articleMenu.items.contains(where: { $0.action == tldrAction }) else {
+			return
+		}
+
+		let menuItem = NSMenuItem(title: NSLocalizedString("Summarize with TL;DR", comment: "Command"), action: tldrAction, keyEquivalent: "s")
+		menuItem.keyEquivalentModifierMask = [.command, .shift]
+
+		if let readerViewIndex = articleMenu.items.firstIndex(where: { $0.action == readerViewAction }) {
+			articleMenu.insertItem(menuItem, at: readerViewIndex + 1)
+		} else {
+			articleMenu.addItem(menuItem)
+		}
+	}
 
 	func handleMarkAsRead(userInfo: [AnyHashable: Any]) {
 		handleStatusNotification(userInfo: userInfo, statusKey: .read)
