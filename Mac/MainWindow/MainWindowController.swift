@@ -99,6 +99,7 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 		}
 
 		detailViewController = splitViewController?.splitViewItems[2].viewController as? DetailViewController
+		detailViewController?.delegate = self
 
 		if #unavailable(macOS 26.0) {
 			splitViewController?.splitViewItems[2].titlebarSeparatorStyle = .line
@@ -275,6 +276,10 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 
 		if item.action == #selector(toggleArticleExtractor(_:)) {
 			return validateToggleArticleExtractor(item)
+		}
+
+		if item.action == #selector(toggleTLDR(_:)) {
+			return validateToggleTLDR(item)
 		}
 
 		if item.action == #selector(toolbarShowShareMenu(_:)) {
@@ -468,6 +473,14 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 			startArticleExtractorForCurrentLink()
 		}
 
+	}
+
+	@IBAction func toggleTLDR(_ sender: Any?) {
+		guard oneSelectedArticle != nil else {
+			return
+		}
+		detailViewController?.toggleTLDR()
+		makeToolbarValidate()
 	}
 
 	@IBAction func markAllAsReadAndGoToNextUnread(_ sender: Any?) {
@@ -692,6 +705,15 @@ extension MainWindowController: TimelineContainerViewControllerDelegate {
 
 }
 
+// MARK: - DetailViewControllerDelegate
+
+extension MainWindowController: DetailViewControllerDelegate {
+
+	func detailTLDRStateDidChange(_: DetailViewController) {
+		makeToolbarValidate()
+	}
+}
+
 // MARK: - NSSearchFieldDelegate
 
 extension MainWindowController: NSSearchFieldDelegate {
@@ -818,6 +840,7 @@ extension NSToolbarItem.Identifier {
 	static let markRead = NSToolbarItem.Identifier("markRead")
 	static let markStar = NSToolbarItem.Identifier("markStar")
 	static let readerView = NSToolbarItem.Identifier("readerView")
+	static let tldr = NSToolbarItem.Identifier("tldr")
 	static let openInBrowser = NSToolbarItem.Identifier("openInBrowser")
 	static let share = NSToolbarItem.Identifier("share")
 	static let articleThemeMenu = NSToolbarItem.Identifier("articleThemeMenu")
@@ -878,6 +901,18 @@ extension MainWindowController: NSToolbarDelegate {
 			toolbarItem.menuFormRepresentation = NSMenuItem(title: description, action: #selector(toggleArticleExtractor(_:)), keyEquivalent: "")
 			return toolbarItem
 
+		case .tldr:
+			let toolbarItem = RSToolbarItem(itemIdentifier: .tldr)
+			toolbarItem.autovalidates = true
+			let description = NSLocalizedString("TL;DR", comment: "TL;DR")
+			toolbarItem.toolTip = NSLocalizedString("Summarize with TL;DR", comment: "Command")
+			toolbarItem.label = description
+			let button = TLDRButton()
+			button.action = #selector(toggleTLDR(_:))
+			toolbarItem.view = button
+			toolbarItem.menuFormRepresentation = NSMenuItem(title: description, action: #selector(toggleTLDR(_:)), keyEquivalent: "")
+			return toolbarItem
+
 		case .share:
 			let title = NSLocalizedString("Share", comment: "Share button")
 			return buildToolbarButton(.share, title, Assets.Images.share, "toolbarShowShareMenu:")
@@ -925,6 +960,7 @@ extension MainWindowController: NSToolbarDelegate {
 			.markRead,
 			.markStar,
 			.readerView,
+			.tldr,
 			.openInBrowser,
 			.share,
 			.articleThemeMenu,
@@ -947,6 +983,7 @@ extension MainWindowController: NSToolbarDelegate {
 			.markStar,
 			.nextUnread,
 			.readerView,
+			.tldr,
 			.share,
 			.openInBrowser,
 			.flexibleSpace,
@@ -1236,6 +1273,31 @@ private extension MainWindowController {
 		}
 
 		return state != .processing
+	}
+
+	func validateToggleTLDR(_ item: NSValidatedUserInterfaceItem) -> Bool {
+		let state = detailViewController?.tldrState
+		let status = state?.status ?? .unavailable
+		let hasArticle = oneSelectedArticle != nil && status != .unavailable
+
+		if let menuItem = item as? NSMenuItem {
+			menuItem.state = status == .ready ? .on : .off
+			menuItem.title = status == .ready ? NSLocalizedString("Hide TL;DR", comment: "Command") : NSLocalizedString("Summarize with TL;DR", comment: "Command")
+		}
+
+		if let toolbarItem = item as? NSToolbarItem, let button = toolbarItem.view as? TLDRButton {
+			switch status {
+			case .generating:
+				button.buttonState = .animated
+			case .ready:
+				button.buttonState = .on
+			case .unavailable, .idle, .failed, .hidden:
+				button.buttonState = .off
+			}
+			toolbarItem.toolTip = status == .ready ? NSLocalizedString("Hide TL;DR", comment: "Command") : NSLocalizedString("Summarize with TL;DR", comment: "Command")
+		}
+
+		return hasArticle && status != .generating
 	}
 
 	func canMarkAboveArticlesAsRead() -> Bool {

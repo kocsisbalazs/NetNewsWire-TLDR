@@ -83,6 +83,8 @@ struct Assets {
 		static let readClosed = RSImage(symbol: "largecircle.fill.circle")!
 		static let readOpen = RSImage(symbol: "circle")!
 		static let refresh = RSImage(symbol: "arrow.clockwise")!
+		static let tldrOff = RSImage(symbol: "text.append")!
+		static let tldrOn = RSImage(symbol: "text.badge.checkmark")!
 		static let swipeMarkUnstarred = RSImage(symbol: "star")!
 		static var timelineStar: RSImage { RSImage(named: "timelineStar")! }
 		static var markBelowAsRead: RSImage { RSImage(named: "markBelowAsRead")! }

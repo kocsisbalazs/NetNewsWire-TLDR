@@ -43,6 +43,7 @@ final class AppDefaults: Sendable {
 		static let defaultBrowserID = "defaultBrowserID"
 		static let currentThemeName = "currentThemeName"
 		static let articleContentJavascriptEnabled = "articleContentJavascriptEnabled"
+		static let tldrSummaryLength = "tldrSummaryLength"
 
 		// Hidden prefs
 		static let showDebugMenu = "ShowDebugMenu"
@@ -287,6 +288,19 @@ final class AppDefaults: Sendable {
 		return AppDefaults.bool(for: Key.timelineShowsSeparators)
 	}
 
+	/// The TL;DR length the reader picked last. New summaries default to it.
+	var tldrSummaryLength: SummaryLength {
+		get {
+			guard let rawValue = AppDefaults.string(for: Key.tldrSummaryLength), let length = SummaryLength(rawValue: rawValue) else {
+				return SummaryLength.default
+			}
+			return length
+		}
+		set {
+			AppDefaults.setString(for: Key.tldrSummaryLength, newValue.rawValue)
+		}
+	}
+
 	var articleTextSize: ArticleTextSize {
 		get {
 			let rawValue = UserDefaults.standard.integer(forKey: Key.articleTextSize)
@@ -344,7 +358,8 @@ final class AppDefaults: Sendable {
 			Key.refreshInterval: RefreshInterval.every2Hours.rawValue,
 			Key.showDebugMenu: showDebugMenu,
 			Key.currentThemeName: Self.defaultThemeName,
-			Key.articleContentJavascriptEnabled: true
+			Key.articleContentJavascriptEnabled: true,
+			Key.tldrSummaryLength: SummaryLength.default.rawValue
 		]
 
 		UserDefaults.standard.register(defaults: defaults)
