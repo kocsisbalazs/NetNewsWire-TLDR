@@ -445,6 +445,7 @@
 				ShareExtension/ExtensionFeedAddRequestFile.swift,
 				ShareExtension/SafariExt.js,
 				ShareExtension/ShareDefaultContainer.swift,
+				TLDR/SummaryLength.swift,
 				Timer/RefreshInterval.swift,
 			);
 			target = 510C415B24E5CDE3008226FD /* NetNewsWire Share Extension */;
