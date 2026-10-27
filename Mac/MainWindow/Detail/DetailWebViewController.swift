@@ -244,7 +244,7 @@ extension DetailWebViewController: WKScriptMessageHandler {
 			delegate?.mouseDidEnter(self, link: link)
 		} else if message.name == MessageName.mouseDidExit {
 			delegate?.mouseDidExit(self)
-		} else if message.name == MessageName.tldr, let body = message.body as? [String: Any], let action = body["action"] as? String {
+		} else if message.name == MessageName.tldr, message.frameInfo.isMainFrame, let body = message.body as? [String: Any], let action = body["action"] as? String {
 			handleTLDRMessage(action: action, lengthRawValue: body["length"] as? String)
 		}
 	}
